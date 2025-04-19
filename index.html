@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>MIDI проигрыватель</title>
+
+	<!-- Синтезатор -->
+	<script src="WebAudioFontPlayer.js"></script>
+
+	<!-- Звуковой шрифт -->
+	<script src="0400_Aspirin_sf2_file.js"></script>
+
+	<!-- Современный MIDI-декодер -->
+	<script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.27/build/Midi.min.js"></script>
+
+	<style>
+		body {
+			font-family: sans-serif;
+			padding: 20px;
+			background: #f0f0f0;
+		}
+
+		h1 {
+			margin-bottom: 10px;
+		}
+
+		input,
+		button {
+			margin-top: 10px;
+			margin-right: 10px;
+		}
+	</style>
+</head>
+
+<body>
+	<h1>MIDI проигрыватель в браузере</h1>
+
+	<input type="file" accept=".mid,.midi" onchange="loadMIDI(this.files[0])">
+	<br>
+	<button onclick="playMIDI()">▶️ Воспроизвести</button>
+	<button onclick="stopMIDI()">⏹ Остановить</button>
+
+	<script>
+		const player = new WebAudioFontPlayer();
+		const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		const selectedPreset = _tone_0400_Aspirin_sf2_file;
+		let scheduledEvents = [];
+		let presetLoaded = true; // сразу true, потому что пресет уже загружен через <script>
+		let midiData = null;
+
+
+
+		// Загрузка и парсинг MIDI-файла
+		function loadMIDI(file) {
+			const reader = new FileReader();
+			reader.onload = function (e) {
+				const midi = new Midi(e.target.result);
+				midiData = midi;
+				console.log("📄 MIDI файл загружен. Готов к воспроизведению.");
+			};
+			reader.readAsArrayBuffer(file);
+		}
+
+		// Воспроизведение
+		function playMIDI() {
+			if (!presetLoaded || !midiData) {
+				alert("⚠️ Сначала загрузите MIDI-файл и дождитесь загрузки пресета.");
+				return;
+			}
+
+			stopMIDI(); // Очистить события перед новым воспроизведением
+			const currentTime = audioContext.currentTime;
+
+			midiData.tracks.forEach(track => {
+				track.notes.forEach(note => {
+					const when = currentTime + note.time;
+					const duration = note.duration;
+					const pitch = note.midi;
+					const velocity = note.velocity;
+
+					player.queueWaveTable(
+						audioContext,
+						audioContext.destination,
+						selectedPreset,
+						when,
+						pitch,
+						duration,
+						velocity
+					);
+
+					scheduledEvents.push({ when, pitch });
+				});
+			});
+
+			console.log("▶️ Воспроизведение запущено.");
+		}
+
+		// Остановка воспроизведения
+		function stopMIDI() {
+			player.cancelQueue(audioContext);
+			scheduledEvents = [];
+			console.log("⏹ Воспроизведение остановлено.");
+		}
+	</script>
+</body>
+
+</html>
